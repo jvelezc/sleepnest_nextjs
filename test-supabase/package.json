@@ -1,0 +1,16 @@
+{
+  "name": "test-supabase",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "ts-node index.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.x.x",
+    "dotenv": "^16.x.x"
+  },
+  "devDependencies": {
+    "typescript": "^5.x.x",
+    "ts-node": "^10.x.x",
+    "@types/node": "^20.x.x"
+  }
+} 
