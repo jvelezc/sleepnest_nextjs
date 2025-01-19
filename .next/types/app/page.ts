@@ -1,4 +1,4 @@
-// File: C:\Users\josej\Downloads\project-bolt-bolt-nextjs-shadcn-2hqv8hqk (3)\project\app\page.tsx
+// File: C:\sleepnest_nextjs\sleepnest_nextjs\app\page.tsx
 import * as entry from '../../../app/page.js'
 import type { ResolvingMetadata } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

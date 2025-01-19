@@ -1,9 +1,3 @@
 {
-  "/_not-found": "app/_not-found.js",
-  "/page": "app/page.js",
-  "/signup/page": "app/signup/page.js",
-  "/dashboard/page": "app/dashboard/page.js",
-  "/login/specialist/page": "app/login/specialist/page.js",
-  "/login/caregiver/page": "app/login/caregiver/page.js",
-  "/register/specialist/page": "app/register/specialist/page.js"
+  "/page": "app/page.js"
 }
