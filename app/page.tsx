@@ -18,7 +18,7 @@ export default function HomePage() {
         <div 
           className="absolute inset-0 bg-cover bg-center"
           style={{ 
-            backgroundImage: "url('/loginpage/Specialist1.png')"
+            backgroundImage: "url('/loginpage/specialist1.png')"
           }}
         >
           <div className="absolute inset-0 bg-gradient-to-t from-violet-900/90 to-transparent" />
