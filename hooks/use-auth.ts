@@ -3,9 +3,10 @@
 import { useEffect } from 'react'
 import { useAuthStore } from '@/lib/store/auth'
 import { supabase } from '@/lib/supabase'
+import { isValidSession } from '@/lib/supabase'
 
 export function useAuth() {
-  const { user, session, loading, error, signIn, signOut, clearError } = useAuthStore()
+  const { user, session, loading, error, signIn, signOut, clearError, refreshAuth } = useAuthStore()
 
   // Initialize auth state
   useEffect(() => {
@@ -33,6 +34,23 @@ export function useAuth() {
     return () => subscription.unsubscribe()
   }, [])
 
+  // Refresh session periodically
+  useEffect(() => {
+    if (!session) return
+    
+    const checkSession = async () => {
+      const isValid = await isValidSession()
+      if (!isValid) {
+        await refreshAuth()
+      }
+    }
+    
+    // Check session every minute
+    const interval = setInterval(checkSession, 60 * 1000)
+    
+    return () => clearInterval(interval)
+  }, [session, refreshAuth])
+
   return {
     user,
     session,
@@ -41,5 +59,6 @@ export function useAuth() {
     signIn,
     signOut,
     clearError,
+    refreshAuth
   }
 }

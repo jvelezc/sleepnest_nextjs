@@ -1,52 +1,98 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database.types'
 
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-  throw new Error('Missing environment variable: NEXT_PUBLIC_SUPABASE_URL')
+const STORAGE_KEY = 'sb-auth-token'
+
+// Create a single Supabase client instance
+const createSupabaseClient = () => {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    throw new Error('Missing environment variable: NEXT_PUBLIC_SUPABASE_URL')
+  }
+
+  if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    throw new Error('Missing environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY')
+  }
+
+  return createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: typeof window !== 'undefined',
+        storage: {
+          getItem: (key) => {
+            try {
+              const storedSession = typeof window !== 'undefined' 
+                ? window.localStorage.getItem(key)
+                : null
+              return storedSession
+            } catch (error) {
+              console.error('Error reading session:', error)
+              return null
+            }
+          },
+          setItem: (key, value) => {
+            try {
+              if (typeof window !== 'undefined') {
+                window.localStorage.setItem(key, value)
+              }
+            } catch (error) {
+              console.error('Error storing session:', error)
+            }
+          },
+          removeItem: (key) => {
+            try {
+              if (typeof window !== 'undefined') {
+                window.localStorage.removeItem(key)
+              }
+            } catch (error) {
+              console.error('Error removing session:', error)
+            }
+          }
+        }
+      },
+      db: {
+        schema: 'public'
+      }
+    }
+  )
 }
 
-if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-  throw new Error('Missing environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY')
+// Export a single instance
+export const supabase = createSupabaseClient()
+
+// Create admin client only when needed
+export const createAdminClient = () => {
+  return createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_EDGE_FUNCTION_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      },
+      db: {
+        schema: 'public'
+      }
+    }
+  )
 }
-
-// Public client (anon key) - for client-side operations
-export const supabase = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, 
-  {
-    auth: {
-      autoRefreshToken: true,
-      persistSession: typeof window !== 'undefined',
-      detectSessionInUrl: true,
-      storage: typeof window !== 'undefined' ? window.localStorage : undefined
-    },
-    db: {
-      schema: 'public'
-    }
-  }
-)
-
-// Admin client (service role key) - for privileged operations
-export const supabaseAdmin = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_EDGE_FUNCTION_KEY!,  // This is your service role key
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    },
-    db: {
-      schema: 'public'
-    }
-  }
-)
 
 // Helper to check if session is valid
 export const isValidSession = async () => {
   try {
-    const { data: { session }, error } = await supabase.auth.getSession()
+    const { data: { session }, error } = await supabase.auth.getSession() 
     if (error) throw error
-    return !!session
+    
+    // Check if session is expired
+    if (session?.expires_at) {
+      const expiresAt = new Date(session.expires_at * 1000)
+      const now = new Date()
+      return expiresAt > now
+    }
+    
+    return false
   } catch (error) {
     console.error('Error checking session:', error)
     return false
@@ -56,9 +102,28 @@ export const isValidSession = async () => {
 // Helper to refresh session
 export const refreshSession = async () => {
   try {
-    const { data: { session }, error } = await supabase.auth.refreshSession()
+    const { data: { session }, error } = await supabase.auth.getSession()
+    
     if (error) throw error
-    return session
+    
+    if (session) {
+      // Check if session needs refresh (e.g. less than 5 minutes until expiry)
+      const expiresAt = new Date(session.expires_at! * 1000)
+      const fiveMinutes = 5 * 60 * 1000
+      const now = new Date()
+      
+      if (expiresAt.getTime() - now.getTime() < fiveMinutes) {
+        const { data: { session: newSession }, error: refreshError } = 
+          await supabase.auth.refreshSession()
+        
+        if (refreshError) throw refreshError
+        return newSession
+      }
+      
+      return session
+    }
+    
+    return null
   } catch (error) {
     console.error('Error refreshing session:', error)
     return null

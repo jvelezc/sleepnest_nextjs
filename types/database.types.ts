@@ -37,6 +37,8 @@ export interface Database {
           created_at: string | null;
           updated_at: string | null;
           active: boolean;
+          last_activity: string | null;
+          last_activity_type: string | null;
         };
         Insert: {
           id?: string;
@@ -45,6 +47,8 @@ export interface Database {
           created_at?: string | null;
           updated_at?: string | null;
           active?: boolean;
+          last_activity?: string | null;
+          last_activity_type?: string | null;
         };
         Update: {
           id?: string;
@@ -53,6 +57,8 @@ export interface Database {
           created_at?: string | null;
           updated_at?: string | null;
           active?: boolean;
+          last_activity?: string | null;
+          last_activity_type?: string | null;
         };
       };
       caregiver_invitations: {
@@ -223,6 +229,43 @@ export interface Database {
       [_ in never]: never;
     };
     Functions: {
+      get_active_caregivers: {
+        Args: {
+          p_specialist_id: string;
+          p_hours?: number;
+        };
+        Returns: {
+          caregiver_id: string;
+          name: string;
+          email: string;
+          last_activity: string;
+          last_activity_type: string;
+        }[];
+      };
+      get_caregiver_status: {
+        Args: {
+          p_specialist_id: string;
+          p_caregiver_id: string;
+        };
+        Returns: string;
+      };
+      get_specialist_caregivers: {
+        Args: {
+          p_specialist_id: string;
+          p_sort_field?: string;
+          p_sort_order?: string;
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: {
+          caregiver_id: string;
+          user_id: string;
+          caregiver_name: string;
+          caregiver_email: string;
+          last_activity: string;
+          status: string;
+        }[];
+      };
       invite_caregiver: {
         Args: {
           caregiver_email: string;
@@ -230,6 +273,21 @@ export interface Database {
           resend?: boolean;
         };
         Returns: string;
+      };
+      update_caregiver_activity: {
+        Args: {
+          p_caregiver_id: string;
+          p_activity_type?: string;
+        };
+        Returns: boolean;
+      };
+      update_caregiver_status: {
+        Args: {
+          p_specialist_id: string;
+          p_caregiver_id: string;
+          p_status: string;
+        };
+        Returns: boolean;
       };
     };
     Enums: {

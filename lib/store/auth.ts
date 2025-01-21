@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { supabase } from '../supabase'
 import { User, Session } from '@supabase/supabase-js'
+import { refreshSession } from '../supabase'
 
 interface AuthState {
   user: User | null
@@ -10,6 +11,7 @@ interface AuthState {
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   clearError: () => void
+  refreshAuth: () => Promise<void>
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -41,6 +43,25 @@ export const useAuthStore = create<AuthState>((set) => ({
         session: null,
       })
       throw err
+    }
+  },
+
+  refreshAuth: async () => {
+    try {
+      const session = await refreshSession()
+      if (session) {
+        set({ 
+          user: session.user,
+          session,
+          loading: false,
+          error: null 
+        })
+      }
+    } catch (err) {
+      set({ 
+        error: 'Failed to refresh session',
+        loading: false 
+      })
     }
   },
 

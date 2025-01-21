@@ -212,14 +212,6 @@ export function InviteCaregiverDialog() {
           <DialogHeader>
             <div className="flex justify-between items-center">
               <DialogTitle>Invite Caregiver</DialogTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 hover:bg-muted"
-                onClick={() => handleOpenChange(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
             </div>
             <DialogDescription>
               Send an invitation to a caregiver to join your practice.

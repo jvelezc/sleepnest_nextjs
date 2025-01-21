@@ -1,12 +1,16 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Users, Mail, Calendar, Clock } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Users, ChartLine as ChartLineUp, Calendar, Clock, MessageCircle, UserPlus } from "lucide-react"
 import { format } from "date-fns"
 import { InviteCaregiverDialog } from "@/components/invite-caregiver-dialog"
 import { useAuth } from "@/hooks/use-auth"
 import { supabase } from "@/lib/supabase"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
+import { ChatWindow } from "@/components/chat-window"
 
 type Caregiver = {
   caregiver_id: string
@@ -14,14 +18,23 @@ type Caregiver = {
   caregiver_name: string
   caregiver_email: string
   last_activity: string
+  status: string
 }
 
+type ChatSession = {
+  specialistId: string
+  caregiverId: string
+  caregiverName: string
+} | null
+
 export default function DashboardPage() {
+  const router = useRouter()
   const { user } = useAuth()
   const [caregivers, setCaregivers] = useState<Caregiver[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [specialistId, setSpecialistId] = useState<string | null>(null)
+  const [chatSession, setChatSession] = useState<ChatSession>(null)
 
   useEffect(() => {
     async function getSpecialistId() {
@@ -149,47 +162,120 @@ export default function DashboardPage() {
   return (
     <div className="flex-1 p-8">
       <div className="flex justify-between items-center mb-8">
-        <div>
+        <div className="space-y-2">
           <h1 className="text-3xl font-bold text-foreground">Sleep Specialist Dashboard</h1>
-          <p className="text-muted-foreground">Manage your clients and track their progress</p>
+          <p className="text-muted-foreground">Welcome back! Here's an overview of your practice</p>
         </div>
         <InviteCaregiverDialog />
       </div>
 
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-foreground">Your Caregivers</h2>
-          <p className="text-sm text-muted-foreground">
-            Showing {caregivers.length} caregiver{caregivers.length === 1 ? "" : "s"}
-          </p>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {caregivers.map((caregiver) => (
-            <Card key={caregiver.caregiver_id}>
-              <CardHeader>
-                <CardTitle>{caregiver.caregiver_name}</CardTitle>
-                <CardDescription className="flex items-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  <span>{caregiver.caregiver_email}</span>
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    <span>Joined {format(new Date(caregiver.last_activity), 'MMM d, yyyy')}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    <span>Last active {format(new Date(caregiver.last_activity), 'h:mm a')}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      {/* Quick Stats */}
+      <div className="grid gap-4 md:grid-cols-3 mb-8">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{caregivers.length}</div>
+            <p className="text-xs text-muted-foreground">
+              Active clients in your practice
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Recent Activity</CardTitle>
+            <ChartLineUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {caregivers.filter(c => {
+                const lastActive = new Date(c.last_activity);
+                const now = new Date();
+                return now.getTime() - lastActive.getTime() < 24 * 60 * 60 * 1000;
+              }).length}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Clients active in last 24h
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">New Clients</CardTitle>
+            <UserPlus className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {caregivers.filter(c => {
+                const joinDate = new Date(c.last_activity);
+                const now = new Date();
+                return now.getTime() - joinDate.getTime() < 7 * 24 * 60 * 60 * 1000;
+              }).length}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              New clients this week
+            </p>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Recent Activity Section */}
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold text-foreground">Recent Activity</h2>
+          <Button variant="outline" onClick={() => router.push('/dashboard/clients')}>
+            View All Clients
+          </Button>
+        </div>
+        
+        <Card>
+          <CardContent className="p-0">
+            <div className="divide-y">
+              {caregivers
+                .sort((a, b) => new Date(b.last_activity).getTime() - new Date(a.last_activity).getTime())
+                .slice(0, 5)
+                .map((caregiver) => (
+                  <div key={caregiver.caregiver_id} className="flex items-center justify-between p-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium leading-none">{caregiver.caregiver_name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Last active {format(new Date(caregiver.last_activity), 'MMM d, h:mm a')}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex items-center gap-2"
+                      onClick={() => {
+                        if (specialistId) {
+                          setChatSession({
+                            specialistId,
+                            caregiverId: caregiver.caregiver_id,
+                            caregiverName: caregiver.caregiver_name
+                          })
+                        }
+                      }}
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      Chat
+                    </Button>
+                  </div>
+                ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {chatSession && (
+        <ChatWindow
+          specialistId={chatSession.specialistId}
+          caregiverId={chatSession.caregiverId}
+          caregiverName={chatSession.caregiverName}
+          onClose={() => setChatSession(null)}
+        />
+      )}
     </div>
   )
 }
