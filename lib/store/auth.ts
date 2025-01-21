@@ -25,14 +25,13 @@ export const useAuthStore = create<AuthState>((set) => ({
         email,
         password,
       })
-
       if (signInError) throw signInError
-
-      set({
+      
+      set({ 
         user: data.user,
         session: data.session,
         loading: false,
-        error: null,
+        error: null 
       })
     } catch (err) {
       set({
@@ -50,8 +49,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ loading: true, error: null })
       await supabase.auth.signOut()
       set({ 
-        user: null, 
-        session: null, 
+        user: null,
+        session: null,
         loading: false,
         error: null 
       })

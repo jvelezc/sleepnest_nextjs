@@ -12,11 +12,11 @@ if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
 // Public client (anon key) - for client-side operations
 export const supabase = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, 
   {
     auth: {
       autoRefreshToken: true,
-      persistSession: true,
+      persistSession: typeof window !== 'undefined',
       detectSessionInUrl: true,
       storage: typeof window !== 'undefined' ? window.localStorage : undefined
     },
