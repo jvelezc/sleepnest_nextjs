@@ -216,7 +216,7 @@ export function ChatWindow({ specialistId, caregiverId, caregiverName, onClose }
               />
               <Button
                 size="icon"
-                variant="primary"
+                variant="default"
                 onClick={handleSendMessage}
                 disabled={sending || !message.trim()}
               >

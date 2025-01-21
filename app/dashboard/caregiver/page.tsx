@@ -27,6 +27,17 @@ type ChatSession = {
   specialistName: string
 } | null
 
+type SpecialistData = {
+  specialist: {
+    id: string
+    name: string
+    email: string
+    business_name: string
+    verification_status: string
+    last_sign_in_at: string
+  }
+}
+
 export default function CaregiverDashboardPage() {
   const { user } = useAuth()
   const [specialists, setSpecialists] = useState<Specialist[]>([])
@@ -85,19 +96,19 @@ export default function CaregiverDashboardPage() {
               verification_status,
               last_sign_in_at
             )
-          `)
-          .eq('caregiver_id', caregiverId)
-          .eq('status', 'active')
+          `) as { data: SpecialistData[] | null, error: any }
 
         if (error) throw error
         
-        const formattedData = data.map(item => ({
-          specialist_id: item.specialist.id,
-          name: item.specialist.name,
-          email: item.specialist.email,
-          business_name: item.specialist.business_name,
-          verification_status: item.specialist.verification_status,
-          last_activity: item.specialist.last_sign_in_at
+        if (!data) return
+
+        const formattedData = data.map(({ specialist }) => ({
+          specialist_id: specialist.id,
+          name: specialist.name,
+          email: specialist.email,
+          business_name: specialist.business_name,
+          verification_status: specialist.verification_status,
+          last_activity: specialist.last_sign_in_at
         }))
 
         setSpecialists(formattedData)
@@ -315,3 +326,4 @@ export default function CaregiverDashboardPage() {
       )}
     </div>
   )
+}
