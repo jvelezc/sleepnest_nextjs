@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
 import { Moon, Sun, LogOut, Home, Users, Settings } from "lucide-react"
@@ -14,14 +14,25 @@ export default function DashboardLayout({
 }) {
   const router = useRouter()
   const pathname = usePathname()
-  const { user, signOut } = useAuth()
+  const { user, role, signOut } = useAuth()
   const { theme, setTheme } = useTheme()
+
+  const defaultPath = useMemo(() => {
+    return role === 'caregiver' ? '/dashboard/caregiver' : '/dashboard/specialist'
+  }, [role])
 
   useEffect(() => {
     if (!user) {
-      router.replace("/login/specialist")
+      const loginPath = role === 'caregiver' ? '/login/caregiver' : '/login/specialist'
+      router.replace(loginPath)
+      return
     }
-  }, [user, router])
+
+    // Redirect to appropriate dashboard if on root dashboard path
+    if (pathname === '/dashboard') {
+      router.replace(defaultPath)
+    }
+  }, [user, role, router, pathname, defaultPath])
 
   if (!user) return null
 
@@ -36,7 +47,7 @@ export default function DashboardLayout({
       <div className="w-64 bg-card border-r flex flex-col">
         <div className="p-4 border-b">
           <div className="font-medium text-lg text-foreground">{user.email}</div>
-          <div className="text-sm text-muted-foreground">Specialist</div>
+          <div className="text-sm text-muted-foreground">{role === 'caregiver' ? 'Caregiver' : 'Specialist'}</div>
           <div className="text-xs text-muted-foreground">
             Last login: {new Date().toLocaleDateString()}
           </div>
@@ -45,13 +56,14 @@ export default function DashboardLayout({
         <nav className="flex-1 p-4">
           <div className="space-y-1">
             <Button
-              variant={pathname === "/dashboard" ? "secondary" : "ghost"}
+              variant={pathname === defaultPath ? "secondary" : "ghost"}
               className="w-full justify-start"
-              onClick={() => router.push("/dashboard")}
+              onClick={() => router.push(defaultPath)}
             >
               <Home className="mr-2 h-4 w-4" />
               Home
             </Button>
+          {role === 'specialist' ? (
             <Button
               variant={pathname === "/dashboard/clients" ? "secondary" : "ghost"}
               className="w-full justify-start"
@@ -60,6 +72,16 @@ export default function DashboardLayout({
               <Users className="mr-2 h-4 w-4" />
               Clients
             </Button>
+          ) : (
+            <Button
+              variant={pathname === "/dashboard/caregivers" ? "secondary" : "ghost"}
+              className="w-full justify-start"
+              onClick={() => router.push("/dashboard/caregivers")}
+            >
+              <Users className="mr-2 h-4 w-4" />
+              Specialists
+            </Button>
+          )}
             <Button
               variant={pathname === "/dashboard/settings" ? "secondary" : "ghost"}
               className="w-full justify-start"

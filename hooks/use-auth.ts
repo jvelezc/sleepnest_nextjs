@@ -6,15 +6,17 @@ import { supabase } from '@/lib/supabase'
 import { isValidSession } from '@/lib/supabase'
 
 export function useAuth() {
-  const { user, session, loading, error, signIn, signOut, clearError, refreshAuth } = useAuthStore()
+  const { user, session, role, loading, error, signIn, signOut, clearError, refreshAuth } = useAuthStore() 
 
   // Initialize auth state
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      const userRole = session?.user?.user_metadata?.role
       useAuthStore.setState({ 
         user: session?.user ?? null,
         session,
+        role: userRole as 'specialist' | 'caregiver' | null,
         loading: false 
       })
     })
@@ -23,9 +25,11 @@ export function useAuth() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
+      const userRole = session?.user?.user_metadata?.role
       useAuthStore.setState({ 
         user: session?.user ?? null,
         session,
+        role: userRole as 'specialist' | 'caregiver' | null,
         loading: false,
         error: null
       })
@@ -55,6 +59,7 @@ export function useAuth() {
     user,
     session,
     loading,
+    role,
     error,
     signIn,
     signOut,

@@ -31,8 +31,8 @@ export default function SpecialistLoginPage() {
     setLoading(true)
 
     try {
-      await signIn(email, password)
-      router.push("/dashboard")
+      await signIn(email, password, 'specialist')
+      router.push("/dashboard/specialist")
     } catch (err: any) {
       toast({
         variant: "destructive",

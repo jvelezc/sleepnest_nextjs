@@ -154,30 +154,10 @@ export function ChatWindow({ specialistId, caregiverId, caregiverName, onClose }
     }
   };
 
-  const messageItems = messages.map((msg) => {
-    const isOwn = msg.sender_id === specialistId;
-    return (
-      <div
-        key={msg.id} // Unique key for each message
-        className={`flex items-start gap-2 ${isOwn ? "flex-row-reverse" : ""}`}
-      >
-        <Avatar className="h-8 w-8">
-          <AvatarFallback>{isOwn ? "ME" : caregiverName[0]}</AvatarFallback>
-        </Avatar>
-        <div className={`flex flex-col ${isOwn ? "items-end" : ""} gap-1 max-w-[80%]`}>
-          <p className="text-sm">{msg.content}</p>
-          <span className="text-xs text-muted-foreground">
-            {format(new Date(msg.created_at), "h:mm a")}
-          </span>
-        </div>
-      </div>
-    );
-  });
-
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50">
       <div className="fixed inset-4 bg-background rounded-lg shadow-lg border flex flex-col">
-        <Card className="flex-1 flex flex-col">
+        <Card className="flex-1 flex flex-col relative">
           <CardHeader className="flex flex-row items-center justify-between pb-4 border-b">
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10 border-2 border-primary">
@@ -197,11 +177,44 @@ export function ChatWindow({ specialistId, caregiverId, caregiverName, onClose }
               ) : messages.length === 0 ? (
                 <div className="text-center text-muted-foreground">No messages yet.</div>
               ) : (
-                <div className="flex flex-col gap-4">{messageItems}</div>
+                <div className="flex flex-col gap-4">
+                  {messages.map((msg) => {
+                    const isOwn = msg.sender_id === specialistId;
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`flex items-start gap-2 ${isOwn ? "flex-row-reverse" : ""} group`}
+                      >
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback>{isOwn ? "ME" : caregiverName[0]}</AvatarFallback>
+                        </Avatar>
+                        <div 
+                          className={`flex flex-col ${isOwn ? "items-end" : ""} gap-1 max-w-[80%] relative`}
+                        >
+                          <div 
+                            className={`
+                              px-4 py-2 rounded-2xl text-sm
+                              ${isOwn ? 
+                                "bg-primary text-primary-foreground rounded-tr-sm" : 
+                                "bg-muted rounded-tl-sm"
+                              }
+                              group-hover:shadow-sm transition-shadow
+                            `}
+                          >
+                            {msg.content}
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(msg.created_at), "h:mm a")}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </ScrollArea>
 
-            <div className="p-4 border-t flex items-center gap-2">
+            <div className="p-4 border-t flex items-center gap-2 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75">
               <Input
                 placeholder="Type your message..."
                 value={message}
@@ -213,6 +226,7 @@ export function ChatWindow({ specialistId, caregiverId, caregiverName, onClose }
                   }
                 }}
                 disabled={sending}
+                className="bg-background"
               />
               <Button
                 size="icon"

@@ -31,8 +31,8 @@ export default function CaregiverLoginPage() {
     setLoading(true)
 
     try {
-      await signIn(email, password)
-      router.push("/dashboard")
+      await signIn(email, password, 'caregiver')
+      router.push("/dashboard/caregiver")
     } catch (err: any) {
       toast({
         variant: "destructive",

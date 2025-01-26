@@ -1,182 +1,153 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { UserCircle, Mail, Calendar, Clock, MessageCircle, Search, Filter, Briefcase, Award } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Moon, Sun, Baby, Milk, PillBottle as BabyBottle, UtensilsCrossed } from "lucide-react"
 import { format } from "date-fns"
+import { ChildSelector } from "@/components/child-selector"
+import { AddChildDialog } from "@/components/add-child-dialog"
+import { useChildStore } from "@/lib/store/child"
+import { FeedingTypeDialog } from "@/components/feeding-type-dialog"
+import { BreastfeedingDialog } from "@/components/breastfeeding-dialog"
 import { useAuth } from "@/hooks/use-auth"
-import { supabase } from "@/lib/supabase"
+import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { ChatWindow } from "@/components/chat-window"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { FeedingHistory } from "@/components/feeding-history"
+import { supabase } from "@/lib/supabase"
+import { HighlightedText } from "@/components/ui/highlighted-text"
 
-type Specialist = {
-  specialist_id: string
+type Child = {
+  id: string
   name: string
-  email: string
-  business_name: string
-  verification_status: string
-  last_activity: string
-}
-
-type ChatSession = {
-  specialistId: string
-  caregiverId: string
-  specialistName: string
-} | null
-
-type SpecialistData = {
-  specialist: {
-    id: string
-    name: string
-    email: string
-    business_name: string
-    verification_status: string
-    last_sign_in_at: string
-  }
 }
 
 export default function CaregiverDashboardPage() {
   const { user } = useAuth()
-  const [specialists, setSpecialists] = useState<Specialist[]>([])
-  const [filteredSpecialists, setFilteredSpecialists] = useState<Specialist[]>([])
-  const [loading, setLoading] = useState(true)
+  const { toast } = useToast()
+  const [feedingDialogOpen, setFeedingDialogOpen] = useState(false)
+  const [breastfeedingDialogOpen, setBreastfeedingDialogOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [caregiverId, setCaregiverId] = useState<string | null>(null)
-  const [chatSession, setChatSession] = useState<ChatSession>(null)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [sortBy, setSortBy] = useState("name")
-  const [page, setPage] = useState(1)
-  const itemsPerPage = 9
+  const [retryCount, setRetryCount] = useState(0)
+  const [children, setChildren] = useState<Child[]>([])
+  const { selectedChild, setSelectedChild } = useChildStore()
+  const [addChildOpen, setAddChildOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  const loadChildren = async () => {
+    if (!caregiverId) return
+
+    try {
+      const { data, error } = await supabase
+        .from('children')
+        .select('id, name')
+        .eq('caregiver_id', caregiverId)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      
+      if (data && data.length > 0) {
+        setChildren(data)
+        setSelectedChild(data[0]) // Select first child by default
+      }
+    } catch (err) {
+      console.error('Error loading children:', err)
+    }
+  }
 
   useEffect(() => {
     async function getCaregiverId() {
       if (!user) {
+        console.log('No user found')
         setLoading(false)
         return
       }
       
       try {
         setError(null)
-        const { data, error } = await supabase
+        console.log('Fetching caregiver ID for user:', user.id)
+
+        const { data: caregiver, error: caregiverError } = await supabase
           .from('caregivers')
           .select('id')
           .eq('auth_user_id', user.id)
-          .single()
+          .maybeSingle()
 
-        if (error) throw error
-        if (data) setCaregiverId(data.id)
-      } catch (err) {
-        console.error('Error fetching caregiver ID:', err)
-        setError('Failed to fetch caregiver data')
-      }
-    }
+        if (caregiverError) throw caregiverError
 
-    getCaregiverId()
-  }, [user])
+        // Create caregiver record if it doesn't exist
+        if (!caregiver) {
+          console.log('Creating new caregiver record')
+          const { data: newCaregiver, error: insertError } = await supabase
+            .from('caregivers')
+            .insert({
+              auth_user_id: user.id,
+              name: user.user_metadata?.name || user.email?.split('@')[0] || 'Unnamed Caregiver',
+              active: true
+            })
+            .select('id')
+            .single()
 
-  useEffect(() => {
-    async function loadSpecialists() {
-      if (!caregiverId) return
-      
-      try {
-        setLoading(true)
+          if (insertError) throw insertError
+          if (!newCaregiver) throw new Error('Failed to create caregiver record')
+          
+          console.log('Created caregiver record:', newCaregiver.id)
+          setCaregiverId(newCaregiver.id)
+        } else {
+          console.log('Found existing caregiver ID:', caregiver.id)
+          setCaregiverId(caregiver.id)
+        }
+
         setError(null)
-        
-        const { data, error } = await supabase
-          .from('specialist_caregiver')
-          .select(`
-            specialist:specialists (
-              id,
-              name,
-              email,
-              business_name,
-              verification_status,
-              last_sign_in_at
-            )
-          `) as { data: SpecialistData[] | null, error: any }
-
-        if (error) throw error
-        
-        if (!data) return
-
-        const formattedData = data.map(({ specialist }) => ({
-          specialist_id: specialist.id,
-          name: specialist.name,
-          email: specialist.email,
-          business_name: specialist.business_name,
-          verification_status: specialist.verification_status,
-          last_activity: specialist.last_sign_in_at
-        }))
-
-        setSpecialists(formattedData)
       } catch (err) {
-        console.error('Error loading specialists:', err)
-        setError('Failed to load specialists')
+        console.error('Error getting caregiver ID:', err)
+        setError(null) // Don't show error to user
+        
+        // Retry a few times if needed
+        if (retryCount < 3) {
+          setTimeout(() => {
+            setRetryCount(c => c + 1)
+          }, 1000)
+        }
       } finally {
         setLoading(false)
       }
     }
 
-    loadSpecialists()
-  }, [caregiverId])
+    getCaregiverId()
+  }, [user, retryCount])
 
-  useEffect(() => {
-    let filtered = [...specialists]
+  useEffect(() => { loadChildren() }, [caregiverId])
 
-    // Apply search filter
-    if (searchQuery) {
-      filtered = filtered.filter(
-        s => 
-          s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          s.business_name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+  const handleFeedingTypeSelect = (type: 'breastfeeding' | 'bottle' | 'formula' | 'solids') => {
+    setFeedingDialogOpen(false)
+    
+    if (!selectedChild) {
+      toast({
+        variant: "destructive",
+        title: "No Child Selected",
+        description: "Please select a child first to track feeding."
+      })
+      return
     }
 
-    // Apply sorting
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case "name":
-          return a.name.localeCompare(b.name)
-        case "recent":
-          return new Date(b.last_activity).getTime() - new Date(a.last_activity).getTime()
-        case "business":
-          return a.business_name.localeCompare(b.business_name)
-        default:
-          return 0
-      }
-    })
-
-    setFilteredSpecialists(filtered)
-  }, [specialists, searchQuery, sortBy])
-
-  const paginatedSpecialists = filteredSpecialists.slice(
-    (page - 1) * itemsPerPage,
-    page * itemsPerPage
-  )
-
-  const totalPages = Math.ceil(filteredSpecialists.length / itemsPerPage)
+    if (type === 'breastfeeding') {
+      setBreastfeedingDialogOpen(true)
+    }
+    // TODO: Handle other feeding types
+  }
 
   if (loading) {
     return (
       <div className="flex-1 p-8">
-        <div className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[...Array(6)].map((_, i) => (
-              <Card key={i} className="animate-pulse">
-                <CardHeader className="space-y-4">
-                  <div className="h-4 bg-muted rounded w-3/4"></div>
-                  <div className="h-3 bg-muted rounded w-1/2"></div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="h-3 bg-muted rounded"></div>
-                    <div className="h-3 bg-muted rounded w-5/6"></div>
-                  </div>
-                </CardContent>
-              </Card>
+        <div className="animate-pulse space-y-6">
+          <div className="h-8 w-1/3 bg-muted rounded"></div>
+          <div className="h-4 w-1/2 bg-muted rounded"></div>
+          <div className="grid gap-6 md:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-48 bg-muted rounded"></div>
             ))}
           </div>
         </div>
@@ -184,146 +155,159 @@ export default function CaregiverDashboardPage() {
     )
   }
 
-  return (
-    <div className="flex-1 p-8">
-      <div className="flex flex-col space-y-6">
-        {/* Search and Filter Bar */}
-        <div className="flex items-center gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search specialists..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Sort by..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="name">Sort by Name</SelectItem>
-              <SelectItem value="recent">Sort by Recent</SelectItem>
-              <SelectItem value="business">Sort by Business</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Specialists Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {paginatedSpecialists.map((specialist) => (
-            <Card key={specialist.specialist_id} className="relative">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <UserCircle className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg">{specialist.name}</CardTitle>
-                      <CardDescription className="flex items-center gap-2">
-                        <Briefcase className="h-3 w-3" />
-                        <span className="text-xs">{specialist.business_name}</span>
-                      </CardDescription>
-                    </div>
-                  </div>
-                  <Badge variant={specialist.verification_status === 'verified' ? 'default' : 'secondary'}>
-                    {specialist.verification_status}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4" />
-                    <span>{specialist.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Award className="h-4 w-4" />
-                    <span>Certified Sleep Consultant</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    <span>Last active {format(new Date(specialist.last_activity), 'h:mm a')}</span>
-                  </div>
-                  <div className="mt-4 flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex items-center gap-2"
-                      onClick={() => {
-                        // Handle view profile
-                      }}
-                    >
-                      <UserCircle className="h-4 w-4" />
-                      Profile
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="flex items-center gap-2"
-                      onClick={() => {
-                        if (caregiverId) {
-                          setChatSession({
-                            specialistId: specialist.specialist_id,
-                            caregiverId,
-                            specialistName: specialist.name
-                          })
-                        }
-                      }}
-                    >
-                      <MessageCircle className="h-4 w-4" />
-                      Chat
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex justify-center gap-2 mt-6">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
+  if (children.length === 0) {
+    return (
+      <div className="flex-1 p-8">
+        <div className="max-w-md mx-auto text-center">
+          <div className="rounded-lg border-2 border-dashed p-12 space-y-6">
+            <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+              <Baby className="h-10 w-10 text-primary" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold">Welcome!</h2>
+              <p className="text-muted-foreground">
+                To get started tracking your baby's activities, please add your child's information.
+              </p>
+            </div>
+            <Button 
+              onClick={() => setAddChildOpen(true)}
+              disabled={!caregiverId}
             >
-              Previous
-            </Button>
-            {[...Array(totalPages)].map((_, i) => (
-              <Button
-                key={i + 1}
-                variant={page === i + 1 ? "default" : "outline"}
-                size="sm"
-                onClick={() => setPage(i + 1)}
-              >
-                {i + 1}
-              </Button>
-            ))}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-            >
-              Next
+              Add Your First Child
             </Button>
           </div>
+        </div>
+        {caregiverId && (
+          <AddChildDialog
+            open={addChildOpen}
+            onOpenChange={setAddChildOpen}
+            caregiverId={caregiverId}
+            onSuccess={() => loadChildren()}
+          />
         )}
       </div>
+    )
+  }
 
-      {chatSession && (
-        <ChatWindow
-          specialistId={chatSession.specialistId}
-          caregiverId={chatSession.caregiverId}
-          caregiverName={chatSession.specialistName}
-          onClose={() => setChatSession(null)}
-        />
-      )}
+  return (
+    <div className="flex-1 p-8">
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">
+              {selectedChild ? (
+                <>Track <HighlightedText>{selectedChild.name}'s</HighlightedText> Schedule</>
+              ) : (
+                'Track Your Baby\'s Schedule'
+              )}
+            </h1>
+            <p className="text-muted-foreground">
+              Record essential activities to understand your baby's patterns and support their healthy development.
+            </p>
+          </div>
+          <ChildSelector
+            children={children}
+            caregiverId={caregiverId!}
+            onChildAdded={loadChildren}
+          />
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-3">
+          {/* Nighttime Sleep Card */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Moon className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>Nighttime Sleep</CardTitle>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Quality nighttime sleep is crucial for your baby's growth, mood, and cognitive development. Track sleep patterns to establish healthy routines.
+              </p>
+              <Button variant="outline" className="w-full">
+                Record sleep →
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Daytime Naps Card */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Sun className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>Daytime Naps</CardTitle>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Regular naps prevent overtiredness and support learning and development. Monitor nap schedules to ensure optimal rest throughout the day.
+              </p>
+              <Button variant="outline" className="w-full">
+                Log nap →
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Feeding Time Card */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Baby className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>Feeding Time</CardTitle>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Proper nutrition is vital for your baby's growth and development. Track feeding patterns to ensure they're getting the nourishment they need.
+              </p>
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => {
+                  if (!selectedChild) {
+                    toast({
+                      variant: "destructive",
+                      title: "No Child Selected",
+                      description: "Please select a child first to track feeding."
+                    })
+                    return
+                  }
+                  setFeedingDialogOpen(true)
+                }}
+              >
+                Track feeding →
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Feeding History */}
+        <FeedingHistory />
+      </div>
+
+      <FeedingTypeDialog 
+        open={feedingDialogOpen}
+        onOpenChange={setFeedingDialogOpen}
+        onSelectType={handleFeedingTypeSelect}
+      />
+
+      <BreastfeedingDialog
+        open={breastfeedingDialogOpen}
+        onOpenChange={setBreastfeedingDialogOpen}
+      />
     </div>
   )
 }

@@ -79,4 +79,15 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  .highlight {
+    @apply relative inline-block;
+  }
+  
+  .highlight::after {
+    content: '';
+    @apply absolute inset-0 bg-yellow-200/50 -z-10;
+    transform: rotate(-2deg);
+    border-radius: 20% 25% 20% 24%;
+  }
 }
