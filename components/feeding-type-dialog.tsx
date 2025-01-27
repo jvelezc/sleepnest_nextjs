@@ -3,6 +3,7 @@
 import { Baby, Milk, PillBottle as BabyBottle, UtensilsCrossed } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Card } from "@/components/ui/card"
+import { useChildStore } from "@/lib/store/child"
 
 interface FeedingTypeDialogProps {
   open: boolean
@@ -15,12 +16,14 @@ export function FeedingTypeDialog({
   onOpenChange,
   onSelectType,
 }: FeedingTypeDialogProps) {
+  const { selectedChild } = useChildStore()
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle className="text-center text-xl">
-            Let's track this feeding session together
+            {selectedChild ? `Let's track ${selectedChild.name}'s feeding session together` : "Let's track a feeding session together"}
           </DialogTitle>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-4 p-4">

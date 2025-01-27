@@ -4,19 +4,28 @@ import { debug } from '@/lib/utils'
 
 type BreastfeedingDetails = {
   side: "Left" | "Right"
-  duration: number
+  duration: number // Duration in minutes, defaults to 0
   order: number
 }
 
+type FeedingSession = Database['public']['Tables']['feeding_sessions']['Row'] & {
+  breastfeeding_sessions?: {
+    left_duration: number | null
+    right_duration: number | null
+    feeding_order: string[]
+    latch_quality: string | null
+  }[]
+}
+
 export async function saveBreastfeedingSession({
-  caregiverId,
+  caregiverId: authUserId,
   childId,
   startTime = new Date(),
   latchQuality,
   notes,
   feedings
 }: {
-  caregiverId: string
+  caregiverId: string // This is actually the auth user ID
   childId: string
   startTime?: Date
   latchQuality?: string | null
@@ -25,10 +34,20 @@ export async function saveBreastfeedingSession({
 }) {
   try {
     debug.info('Starting to save breastfeeding session', {
-      caregiverId,
+      authUserId,
       childId, 
       feedings
     })
+
+    // Get the actual caregiver ID from the auth user ID
+    const { data: caregiver, error: caregiverError } = await supabase
+      .from('caregivers')
+      .select('id')
+      .eq('auth_user_id', authUserId)
+      .single()
+
+    if (caregiverError) throw caregiverError
+    if (!caregiver) throw new Error('Caregiver not found')
 
     // Calculate total duration and end time
     const totalDuration = getTotalDuration(feedings)
@@ -38,7 +57,7 @@ export async function saveBreastfeedingSession({
     const { data: session, error: sessionError } = await supabase
       .from('feeding_sessions')
       .insert([{
-        caregiver_id: caregiverId,
+        caregiver_id: caregiver.id,
         child_id: childId,
         type: 'breastfeeding',
         start_time: startTime.toISOString(),
@@ -84,7 +103,7 @@ export async function saveBreastfeedingSession({
 }
 
 function getTotalDuration(feedings: BreastfeedingDetails[]) {
-  return feedings.reduce((total, feeding) => total + feeding.duration, 0)
+  return feedings.reduce((total, feeding) => total + (feeding.duration ?? 0), 0)
 }
 
 export async function getBreastfeedingSession(sessionId: string) {
@@ -162,7 +181,7 @@ export async function getDailyFeedingSummary(caregiverId: string, childId: strin
     sessions: sessions || []
   }
 
-  sessions?.forEach(session => {
+  sessions?.forEach((session: FeedingSession) => {
     if (session.type === 'breastfeeding' && session.breastfeeding_sessions?.[0]) {
       const details = session.breastfeeding_sessions[0]
       if (details.left_duration) {

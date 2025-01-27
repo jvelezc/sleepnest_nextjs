@@ -1,10 +1,16 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database.types'
+
+const RETRY_COUNT = 3
+const RETRY_DELAY = 1000
 
 const STORAGE_KEY = 'sb-auth-token'
 
+// Add this type at the top with other imports
+type FetchParameters = Parameters<typeof fetch>
+
 // Create a single Supabase client instance
-const createSupabaseClient = () => {
+const createSupabaseClient = (retryAttempt = 0): SupabaseClient<Database> => {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
     throw new Error('Missing environment variable: NEXT_PUBLIC_SUPABASE_URL')
   }
@@ -13,13 +19,14 @@ const createSupabaseClient = () => {
     throw new Error('Missing environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY')
   }
 
-  return createClient<Database>(
+  const client = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       auth: {
         autoRefreshToken: true,
         persistSession: typeof window !== 'undefined',
+        detectSessionInUrl: true,
         storage: {
           getItem: (key) => {
             try {
@@ -54,9 +61,26 @@ const createSupabaseClient = () => {
       },
       db: {
         schema: 'public'
+      },
+      global: {
+        fetch: async (...args: FetchParameters) => {
+          try {
+            const response = await fetch(...args)
+            return response
+          } catch (error) {
+            if (retryAttempt < RETRY_COUNT) {
+              await new Promise(resolve => setTimeout(resolve, RETRY_DELAY))
+              // Use regular fetch for retries instead of recursive client creation
+              return fetch(...args)
+            }
+            throw error
+          }
+        }
       }
     }
   )
+
+  return client
 }
 
 // Export a single instance

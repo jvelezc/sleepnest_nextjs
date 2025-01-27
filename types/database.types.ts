@@ -37,10 +37,8 @@ export type Database = {
           created_at: string | null
           feeding_duration: number | null
           id: string
-          milk_type: string
           session_id: string
           updated_at: string | null
-          warmed: boolean | null
         }
         Insert: {
           amount_ml: number
@@ -48,10 +46,8 @@ export type Database = {
           created_at?: string | null
           feeding_duration?: number | null
           id?: string
-          milk_type: string
           session_id: string
           updated_at?: string | null
-          warmed?: boolean | null
         }
         Update: {
           amount_ml?: number
@@ -59,10 +55,8 @@ export type Database = {
           created_at?: string | null
           feeding_duration?: number | null
           id?: string
-          milk_type?: string
           session_id?: string
           updated_at?: string | null
-          warmed?: boolean | null
         }
         Relationships: [
           {
@@ -349,7 +343,6 @@ export type Database = {
           amount_ml: number
           amount_oz: number | null
           brand: string
-          concentration: string | null
           created_at: string | null
           id: string
           prepared_by: string | null
@@ -360,7 +353,6 @@ export type Database = {
           amount_ml: number
           amount_oz?: number | null
           brand: string
-          concentration?: string | null
           created_at?: string | null
           id?: string
           prepared_by?: string | null
@@ -371,7 +363,6 @@ export type Database = {
           amount_ml?: number
           amount_oz?: number | null
           brand?: string
-          concentration?: string | null
           created_at?: string | null
           id?: string
           prepared_by?: string | null

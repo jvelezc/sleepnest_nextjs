@@ -146,8 +146,9 @@ export default function CaregiverDashboardPage() {
       setBottleFeedingDialogOpen(true)
     } else if (type === 'formula') {
       setFormulaFeedingDialogOpen(true)
+    } else if (type === 'solids') {
+      setSolidsFeedingDialogOpen(true)
     }
-    // TODO: Handle other feeding types
   }
 
   if (loading) {

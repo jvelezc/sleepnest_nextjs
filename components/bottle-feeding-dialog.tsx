@@ -4,7 +4,8 @@ import { useState, useEffect } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
-import { Milk, HelpCircle, X } from "lucide-react"
+import { Milk, HelpCircle, X, Calendar as CalendarIcon, Clock } from "lucide-react"
+import { Label } from "@/components/ui/label"
 import {
   Dialog,
   DialogContent,
@@ -12,23 +13,24 @@ import {
   DialogTitle,
   DialogFooter,
 } from "./ui/dialog"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { HighlightedText } from "@/components/ui/highlighted-text"
 import { Textarea } from "@/components/ui/textarea"
+import { format } from "date-fns"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
 import { useChildStore } from "@/lib/store/child"
-import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { supabase } from "@/lib/supabase"
 
 const formSchema = z.object({
   amount_ml: z.number().min(1).max(500),
-  milk_type: z.enum(["expressed", "donor"]),
-  warmed: z.boolean().default(false),
+  feeding_duration: z.number().min(0).optional(),
+  date: z.date(),
+  time: z.string(),
   notes: z.string().optional()
 })
 
@@ -36,8 +38,6 @@ interface BottleFeedingDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
-
-type FeedingType = 'breastfeeding' | 'bottle' | 'formula' | 'solids'
 
 export function BottleFeedingDialog({
   open,
@@ -53,45 +53,59 @@ export function BottleFeedingDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       amount_ml: 60,
-      milk_type: "expressed",
-      warmed: false,
+      date: new Date(),
+      time: format(new Date(), 'HH:mm'),
+      feeding_duration: undefined,
       notes: ""
     }
   })
 
+  const [step, setStep] = useState<'date-time' | 'details'>('date-time')
+
   useEffect(() => {
     async function getCaregiverId() {
       if (!user) return
-
+      
+      let retries = 3;
+      
       try {
-        // Query the caregivers table directly instead of using RPC
-        const { data: caregiver, error: caregiverError } = await supabase
-          .from('caregivers')
-          .select('id')
-          .eq('auth_user_id', user.id)
-          .single()
+        while (retries > 0) {
+          const { data: caregiver, error: caregiverError } = await supabase
+            .from('caregivers')
+            .select('id')
+            .eq('auth_user_id', user.id)
+            .single()
 
-        if (caregiverError || !caregiver) {
-          throw new Error('Failed to get caregiver ID')
+          if (!caregiverError && caregiver) {
+            setCaregiverId(caregiver.id)
+            return
+          }
+
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          retries--
+
+          if (retries === 0) {
+            throw new Error('Failed to get caregiver ID after multiple attempts')
+          }
         }
-
-        setCaregiverId(caregiver.id)
       } catch (err) {
         console.error('Error getting caregiver ID:', err)
         toast({
           variant: "destructive",
           title: "Error",
-          description: "Failed to load caregiver data"
+          description: "Failed to load caregiver data. Please try again."
         })
       }
     }
 
     getCaregiverId()
-  }, [user])
+  }, [user, toast])
 
   const handleClose = () => {
     onOpenChange(false)
     form.reset()
+    setStep('date-time')
   }
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -105,6 +119,18 @@ export function BottleFeedingDialog({
       if (!caregiverId) {
         throw new Error('No caregiver ID found')
       }
+      
+      // Parse the date and time
+      const feedingDate = values.date
+      const [hours, minutes] = values.time.split(':').map(Number)
+      
+      feedingDate.setHours(hours, minutes)
+      const startTime = feedingDate.toISOString()
+      
+      // Calculate end time based on duration if provided
+      const endTime = values.feeding_duration
+        ? new Date(feedingDate.getTime() + values.feeding_duration * 60000).toISOString()
+        : startTime
 
       const now = new Date().toISOString()
       
@@ -114,9 +140,9 @@ export function BottleFeedingDialog({
         .insert([{  // Wrap in array
           caregiver_id: caregiverId, // Now we know this is not null
           child_id: selectedChild.id,
-          type: 'bottle' as FeedingType,
-          start_time: now,
-          end_time: now,
+          type: 'bottle' as const,
+          start_time: startTime,
+          end_time: endTime,
           notes: values.notes || null
         }])
         .select()
@@ -130,10 +156,9 @@ export function BottleFeedingDialog({
         .from('bottle_sessions')
         .insert([{  // Also wrap in array
           session_id: session.id,
-          milk_type: values.milk_type,
           amount_ml: values.amount_ml,
           amount_oz: Math.round(values.amount_ml * 0.033814 * 10) / 10,
-          warmed: values.warmed
+          feeding_duration: values.feeding_duration || null
         }])
 
       if (bottleError) throw bottleError
@@ -176,7 +201,7 @@ export function BottleFeedingDialog({
               e.stopPropagation()
               toast({
                 title: "About Bottle Feeding",
-                description: "Record expressed breast milk or donor milk feedings. Track amount, temperature preference, and any notes about the feeding.",
+                description: "Record bottle feedings including amount and any notes about the feeding.",
                 duration: 5000,
               })
             }}
@@ -187,6 +212,66 @@ export function BottleFeedingDialog({
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <div className="space-y-4">
+            {step === 'date-time' && (
+              <div className="space-y-4">
+                {/* Date Selection */}
+                <div className="space-y-2">
+                  <Label>When did the feeding occur?</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={`w-full justify-start text-left font-normal ${
+                          !form.watch("date") && "text-muted-foreground"
+                        }`}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {form.watch("date") ? format(form.watch("date"), "PPP") : <span>Select feeding date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={form.watch("date")}
+                        onSelect={(date) => date && form.setValue("date", date)}
+                        disabled={(date) =>
+                          date > new Date() || date < new Date("2000-01-01")
+                        }
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* Time Selection */}
+                <div className="space-y-2">
+                  <Label>What time did the feeding start?</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="time"
+                      className="flex-1"
+                      {...form.register("time")}
+                    />
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Please enter the time you started feeding the baby
+                  </p>
+                </div>
+
+                <div className="flex justify-end mt-6">
+                  <Button
+                    type="button"
+                    onClick={() => setStep('details')}
+                  >
+                    Continue
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {step === 'details' && (
+              <>
             {/* Amount */}
             <div className="space-y-2">
               <Label>Amount</Label>
@@ -213,32 +298,27 @@ export function BottleFeedingDialog({
               )}
             </div>
 
-            {/* Milk Type */}
+            {/* Duration */}
             <div className="space-y-2">
-              <Label>Milk Type</Label>
-              <RadioGroup
-                defaultValue={form.getValues("milk_type")}
-                onValueChange={(value) => form.setValue("milk_type", value as "expressed" | "donor")}
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="expressed" id="expressed" />
-                  <Label htmlFor="expressed">Expressed Breast Milk</Label>
+              <Label>How long did the feeding take? (Optional)</Label>
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="Enter duration in minutes"
+                    {...form.register("feeding_duration", { valueAsNumber: true })}
+                  />
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Total minutes spent feeding
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="donor" id="donor" />
-                  <Label htmlFor="donor">Donor Milk</Label>
-                </div>
-              </RadioGroup>
-            </div>
-
-            {/* Warmed */}
-            <div className="flex items-center justify-between">
-              <Label htmlFor="warmed">Warmed Before Feeding</Label>
-              <Switch
-                id="warmed"
-                checked={form.watch("warmed")}
-                onCheckedChange={(checked) => form.setValue("warmed", checked)}
-              />
+              </div>
+              {form.formState.errors.feeding_duration && (
+                <p className="text-sm text-destructive">
+                  {form.formState.errors.feeding_duration.message}
+                </p>
+              )}
             </div>
 
             {/* Notes */}
@@ -258,6 +338,8 @@ export function BottleFeedingDialog({
                 </ul>
               </div>
             </div>
+            </>
+            )}
           </div>
 
           <DialogFooter className="flex flex-col gap-2 border-t pt-4">
@@ -271,21 +353,26 @@ export function BottleFeedingDialog({
               >
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                size="sm"
-                className="flex-1"
-                disabled={saving}
-              >
-                {saving ? "Saving..." : "Save Record"}
-              </Button>
+              {step === 'details' && (
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="flex-1"
+                  disabled={saving}
+                >
+                  {saving ? "Saving..." : "Save Record"}
+                </Button>
+              )}
             </div>
             <Button
               type="button"
               variant="ghost"
               size="sm"
               className="w-full text-muted-foreground hover:text-destructive"
-              onClick={() => form.reset()}
+              onClick={() => {
+                form.reset()
+                setStep('date-time')
+              }}
             >
               <X className="mr-2 h-4 w-4" />
               Reset Form

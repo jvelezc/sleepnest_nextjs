@@ -2,6 +2,8 @@
 
 import { useState } from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
+import { Calendar as CalendarIcon } from "lucide-react"
+import { Label } from "@/components/ui/label"
 import {
   Dialog,
   DialogContent,
@@ -9,12 +11,15 @@ import {
   DialogTitle,
   DialogFooter,
 } from "./ui/dialog"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Clock, HelpCircle, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { HighlightedText } from "@/components/ui/highlighted-text"
 import { Textarea } from "@/components/ui/textarea"
+import { format } from "date-fns"
 import { saveBreastfeedingSession } from "@/lib/services/feeding"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth" 
@@ -25,7 +30,7 @@ interface BreastfeedingDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
-type Step = 'right-question' | 'right-duration' | 'left-question' | 'left-duration' | 'latch-quality' | 'notes' | 'summary'
+type Step = 'date-time' | 'right-question' | 'right-duration' | 'left-question' | 'left-duration' | 'latch-quality' | 'notes' | 'summary'
 
 export function BreastfeedingDialog({
   open,
@@ -34,7 +39,7 @@ export function BreastfeedingDialog({
   const { toast } = useToast()
   const { user } = useAuth()
   const { selectedChild } = useChildStore()
-  const [step, setStep] = useState<Step>('right-question')
+  const [step, setStep] = useState<Step>('date-time')
   const [leftFeeding, setLeftFeeding] = useState<number | null>(null)
   const [rightFeeding, setRightFeeding] = useState<number | null>(null)
   const [showCustomDuration, setShowCustomDuration] = useState(false)
@@ -42,6 +47,8 @@ export function BreastfeedingDialog({
   const [latchQuality, setLatchQuality] = useState<string | null>(null)
   const [notes, setNotes] = useState("")
   const [saving, setSaving] = useState(false)
+  const [feedingDate, setFeedingDate] = useState<Date>(new Date())
+  const [feedingTime, setFeedingTime] = useState(format(new Date(), 'HH:mm'))
 
   const handleClose = () => {
     onOpenChange(false)
@@ -92,18 +99,25 @@ export function BreastfeedingDialog({
   }
 
   const resetForm = () => {
-    setStep('right-question')
+    setStep('date-time')
     setLeftFeeding(null)
     setRightFeeding(null)
     setShowCustomDuration(false)
     setLatchQuality(null)
     setCustomDuration("")
     setNotes("")
+    setFeedingDate(new Date())
+    setFeedingTime(format(new Date(), 'HH:mm'))
   }
 
   const handleSubmit = async () => {
     try {
       setSaving(true)
+      
+      // Parse the date and time
+      const startDate = new Date(feedingDate)
+      const [hours, minutes] = feedingTime.split(':').map(Number)
+      startDate.setHours(hours, minutes)
 
       if (!selectedChild) {
         throw new Error('No child selected')
@@ -134,6 +148,7 @@ export function BreastfeedingDialog({
       await saveBreastfeedingSession({
         caregiverId,
         childId: selectedChild.id,
+        startTime: startDate,
         latchQuality,
         feedings,
         notes: notes.trim() || undefined
@@ -188,6 +203,67 @@ export function BreastfeedingDialog({
         </DialogHeader>
         
         <div className="space-y-6 py-4">
+          {step === 'date-time' && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-center">
+                When did {selectedChild?.name || 'baby'} feed?
+              </h3>
+              
+              {/* Date Selection */}
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={`w-full justify-start text-left font-normal`}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(feedingDate, "PPP")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={feedingDate}
+                      onSelect={(date) => date && setFeedingDate(date)}
+                      disabled={(date) =>
+                        date > new Date() || date < new Date("2000-01-01")
+                      }
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Time Selection */}
+              <div className="space-y-2">
+                <Label>Time</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="time"
+                    value={feedingTime}
+                    onChange={(e) => setFeedingTime(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Please enter when the feeding started
+                </p>
+              </div>
+
+              <div className="flex justify-center gap-4 mt-6">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setStep('right-question')}
+                >
+                  Continue
+                </Button>
+              </div>
+            </div>
+          )}
+
           {step === 'right-question' && (
             <div className="space-y-4">
               <h3 className="text-lg font-medium text-center">

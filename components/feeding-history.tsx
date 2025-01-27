@@ -29,8 +29,11 @@ type FeedingSession = {
   bottle_sessions?: {
     amount_ml: number
     amount_oz: number | null
-    milk_type: string
-    warmed: boolean | null
+  }[]
+  formula_sessions?: {
+    amount_ml: number
+    amount_oz: number | null
+    brand: string
   }[]
   solids_sessions?: {
     foods: string[]
@@ -62,10 +65,13 @@ export function FeedingHistory() {
             feeding_order
           ),
           bottle_sessions (
+            amount_ml, 
+            amount_oz
+          ),
+          formula_sessions (
             amount_ml,
             amount_oz,
-            milk_type,
-            warmed
+            brand
           ),
           solids_sessions (
             foods,
@@ -227,12 +233,21 @@ export function FeedingHistory() {
                           {session.bottle_sessions[0].amount_oz.toFixed(1)}oz
                         </Badge>
                       )}
-                      <Badge>
-                        {session.bottle_sessions[0].milk_type === 'expressed' ? 'Expressed' : 'Donor'} Milk
+                    </>
+                  )}
+                  {session.type === 'formula' && session.formula_sessions?.[0] && (
+                    <>
+                      <Badge variant="outline">
+                        {session.formula_sessions[0].amount_ml}mL
                       </Badge>
-                      {session.bottle_sessions[0].warmed && (
-                        <Badge variant="secondary">Warmed</Badge>
+                      {session.formula_sessions[0].amount_oz && (
+                        <Badge variant="outline">
+                          {session.formula_sessions[0].amount_oz.toFixed(1)}oz
+                        </Badge>
                       )}
+                      <Badge>
+                        {session.formula_sessions[0].brand}
+                      </Badge>
                     </>
                   )}
                   {session.type === 'solids' && session.solids_sessions?.[0] && (

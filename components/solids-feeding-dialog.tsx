@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
+import { format } from "date-fns"
 import * as z from "zod"
-import { UtensilsCrossed, HelpCircle, X, Plus } from "lucide-react"
+import { UtensilsCrossed, HelpCircle, X, Plus, Calendar as CalendarIcon, Clock } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -12,6 +13,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "./ui/dialog"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -27,8 +30,6 @@ const formSchema = z.object({
   foods: z.array(z.string()).min(1, "Please add at least one food"),
   amount_eaten: z.enum(["none", "taste", "some", "most", "all"]),
   reaction: z.enum(["enjoyed", "neutral", "disliked", "allergic"]),
-  texture_preference: z.enum(["pureed", "mashed", "soft", "finger_foods"]).optional(),
-  timing_relative_to_sleep: z.enum(["well_before", "close_to", "during_night"]).optional(),
   notes: z.string().optional()
 })
 
@@ -47,6 +48,9 @@ export function SolidsFeedingDialog({
   const [saving, setSaving] = useState(false)
   const [newFood, setNewFood] = useState("")
   const [caregiverId, setCaregiverId] = useState<string | null>(null)
+  const [step, setStep] = useState<'date-time' | 'details'>('date-time')
+  const [feedingDate, setFeedingDate] = useState<Date>(new Date())
+  const [feedingTime, setFeedingTime] = useState(format(new Date(), 'HH:mm'))
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -54,8 +58,6 @@ export function SolidsFeedingDialog({
       foods: [],
       amount_eaten: "some",
       reaction: "neutral",
-      texture_preference: "pureed",
-      timing_relative_to_sleep: "well_before",
       notes: ""
     }
   })
@@ -92,6 +94,7 @@ export function SolidsFeedingDialog({
   const handleClose = () => {
     onOpenChange(false)
     form.reset()
+    setStep('date-time')
     setNewFood("")
   }
 
@@ -197,6 +200,65 @@ export function SolidsFeedingDialog({
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <div className="space-y-4">
+            {step === 'date-time' && (
+              <div className="space-y-4">
+                {/* Date Selection */}
+                <div className="space-y-2">
+                  <Label>When did the feeding occur?</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={`w-full justify-start text-left font-normal`}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {format(feedingDate, "PPP")}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={feedingDate}
+                        onSelect={(date) => date && setFeedingDate(date)}
+                        disabled={(date) =>
+                          date > new Date() || date < new Date("2000-01-01")
+                        }
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* Time Selection */}
+                <div className="space-y-2">
+                  <Label>What time did the feeding start?</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="time"
+                      value={feedingTime}
+                      onChange={(e) => setFeedingTime(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Please enter when the feeding started
+                  </p>
+                </div>
+
+                <div className="flex justify-end mt-6">
+                  <Button
+                    type="button"
+                    onClick={() => setStep('details')}
+                  >
+                    Continue
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {step === 'details' && (
+              <>
             {/* Foods */}
             <div className="space-y-2">
               <Label>Foods Offered</Label>
@@ -296,54 +358,6 @@ export function SolidsFeedingDialog({
               </RadioGroup>
             </div>
 
-            {/* Texture Preference */}
-            <div className="space-y-2">
-              <Label>Texture Preference</Label>
-              <RadioGroup
-                defaultValue={form.getValues("texture_preference")}
-                onValueChange={(value) => form.setValue("texture_preference", value as any)}
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="pureed" id="pureed" />
-                  <Label htmlFor="pureed">Pureed</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="mashed" id="mashed" />
-                  <Label htmlFor="mashed">Mashed</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="soft" id="soft" />
-                  <Label htmlFor="soft">Soft Pieces</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="finger_foods" id="finger_foods" />
-                  <Label htmlFor="finger_foods">Finger Foods</Label>
-                </div>
-              </RadioGroup>
-            </div>
-
-            {/* Timing */}
-            <div className="space-y-2">
-              <Label>Timing Relative to Sleep</Label>
-              <RadioGroup
-                defaultValue={form.getValues("timing_relative_to_sleep")}
-                onValueChange={(value) => form.setValue("timing_relative_to_sleep", value as any)}
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="well_before" id="well_before" />
-                  <Label htmlFor="well_before">Well Before Sleep</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="close_to" id="close_to" />
-                  <Label htmlFor="close_to">Close to Sleep Time</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="during_night" id="during_night" />
-                  <Label htmlFor="during_night">During Night Wake</Label>
-                </div>
-              </RadioGroup>
-            </div>
-
             {/* Notes */}
             <div className="space-y-2">
               <Label>Notes (Optional)</Label>
@@ -361,6 +375,8 @@ export function SolidsFeedingDialog({
                 </ul>
               </div>
             </div>
+            </>
+            )}
           </div>
 
           <DialogFooter className="flex flex-col gap-2 border-t pt-4">
@@ -374,14 +390,16 @@ export function SolidsFeedingDialog({
               >
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                size="sm"
-                className="flex-1"
-                disabled={saving}
-              >
-                {saving ? "Saving..." : "Save Record"}
-              </Button>
+              {step === 'details' && (
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="flex-1"
+                  disabled={saving}
+                >
+                  {saving ? "Saving..." : "Save Record"}
+                </Button>
+              )}
             </div>
             <Button
               type="button"
@@ -391,6 +409,7 @@ export function SolidsFeedingDialog({
               onClick={() => {
                 form.reset()
                 setNewFood("")
+                setStep('date-time')
               }}
             >
               <X className="mr-2 h-4 w-4" />

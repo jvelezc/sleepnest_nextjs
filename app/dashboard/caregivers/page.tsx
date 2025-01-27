@@ -27,6 +27,17 @@ type ChatSession = {
   specialistName: string
 } | null
 
+type SpecialistResponse = {
+  specialist: {
+    id: string
+    name: string | null
+    email: string | null
+    business_name: string | null
+    verification_status: string | null
+    last_sign_in_at: string | null
+  }
+}
+
 export default function CaregiversPage() {
   const { user } = useAuth()
   const [specialists, setSpecialists] = useState<Specialist[]>([])
@@ -92,7 +103,7 @@ export default function CaregiversPage() {
         
         if (!data) return
 
-        const formattedData: Specialist[] = data.map(({ specialist }) => ({
+        const formattedData: Specialist[] = (data as SpecialistResponse[]).map(({ specialist }) => ({
           specialist_id: specialist.id,
           name: specialist.name || '',
           email: specialist.email,

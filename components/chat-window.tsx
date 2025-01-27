@@ -12,6 +12,22 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 
+interface RealtimePayload {
+  new: {
+    message_id: string
+    room_id: string
+    sender_id: string
+    content: string
+    created_at: string
+    updated_at: string
+    edited: boolean
+    deleted: boolean
+    read: boolean
+  }
+  old: Record<string, unknown>
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE'
+}
+
 interface ChatWindowProps {
   specialistId: string;
   caregiverId: string;
@@ -65,8 +81,8 @@ export function ChatWindow({ specialistId, caregiverId, caregiverName, onClose }
               table: "messages",
               filter: `room_id=eq.${roomId}`,
             },
-            (payload) => {
-              const newMessage = payload.new as any;
+            (payload: RealtimePayload) => {
+              const newMessage = payload.new;
               const formattedMessage: Message = {
                 id: newMessage.message_id,
                 room_id: newMessage.room_id,
