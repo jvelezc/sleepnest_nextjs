@@ -11,6 +11,7 @@ import { useChildStore } from "@/lib/store/child"
 interface Child {
   id: string
   name: string
+  date_of_birth: string
 }
 
 interface ChildSelectorProps {

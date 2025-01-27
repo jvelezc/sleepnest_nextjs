@@ -17,10 +17,25 @@ type FeedingSession = {
   start_time: string
   end_time: string | null
   notes: string | null
+  caregiver_id: string
+  child_id: string
+  created_at: string | null
+  updated_at: string | null
   breastfeeding_sessions?: {
     left_duration: number | null
     right_duration: number | null
     feeding_order: string[]
+  }[]
+  bottle_sessions?: {
+    amount_ml: number
+    amount_oz: number | null
+    milk_type: string
+    warmed: boolean | null
+  }[]
+  solids_sessions?: {
+    foods: string[]
+    amount_eaten: string
+    reaction: string
   }[]
 }
 
@@ -45,6 +60,17 @@ export function FeedingHistory() {
             left_duration,
             right_duration,
             feeding_order
+          ),
+          bottle_sessions (
+            amount_ml,
+            amount_oz,
+            milk_type,
+            warmed
+          ),
+          solids_sessions (
+            foods,
+            amount_eaten,
+            reaction
           )
         `)
         .eq('child_id', selectedChild.id)
@@ -52,7 +78,10 @@ export function FeedingHistory() {
         .limit(10)
 
       if (error) throw error
-      setSessions(data || [])
+
+      // Type assertion to ensure data matches our type
+      const typedData = (data || []) as FeedingSession[]
+      setSessions(typedData)
     } catch (err) {
       console.error('Error loading feeding sessions:', err)
       toast({
@@ -177,14 +206,49 @@ export function FeedingHistory() {
                   {session.type === 'breastfeeding' && session.breastfeeding_sessions?.[0] && (
                     <>
                       <Badge variant="outline">
-                        L: {session.breastfeeding_sessions[0].left_duration}min
+                        L: {session.breastfeeding_sessions[0].left_duration || 0}min
                       </Badge>
                       <Badge variant="outline">
-                        R: {session.breastfeeding_sessions[0].right_duration}min
+                        R: {session.breastfeeding_sessions[0].right_duration || 0}min
                       </Badge>
                       <Badge>
                         {(session.breastfeeding_sessions[0].left_duration || 0) + 
                          (session.breastfeeding_sessions[0].right_duration || 0)}min total
+                      </Badge>
+                    </>
+                  )}
+                  {session.type === 'bottle' && session.bottle_sessions?.[0] && (
+                    <>
+                      <Badge variant="outline">
+                        {session.bottle_sessions[0].amount_ml}mL
+                      </Badge>
+                      {session.bottle_sessions[0].amount_oz && (
+                        <Badge variant="outline">
+                          {session.bottle_sessions[0].amount_oz.toFixed(1)}oz
+                        </Badge>
+                      )}
+                      <Badge>
+                        {session.bottle_sessions[0].milk_type === 'expressed' ? 'Expressed' : 'Donor'} Milk
+                      </Badge>
+                      {session.bottle_sessions[0].warmed && (
+                        <Badge variant="secondary">Warmed</Badge>
+                      )}
+                    </>
+                  )}
+                  {session.type === 'solids' && session.solids_sessions?.[0] && (
+                    <>
+                      <Badge variant="outline">
+                        {session.solids_sessions[0].foods.length} food{session.solids_sessions[0].foods.length !== 1 ? 's' : ''}
+                      </Badge>
+                      <Badge>
+                        {session.solids_sessions[0].amount_eaten}
+                      </Badge>
+                      <Badge variant={
+                        session.solids_sessions[0].reaction === 'enjoyed' ? 'default' :
+                        session.solids_sessions[0].reaction === 'allergic' ? 'destructive' :
+                        'secondary'
+                      }>
+                        {session.solids_sessions[0].reaction}
                       </Badge>
                     </>
                   )}

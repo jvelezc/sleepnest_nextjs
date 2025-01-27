@@ -15,10 +15,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 type Specialist = {
   specialist_id: string
   name: string
-  email: string
-  business_name: string
-  verification_status: string
-  last_activity: string
+  email: string | null
+  business_name: string | null
+  verification_status: string | null
+  last_activity: string | null
 }
 
 type ChatSession = {
@@ -92,9 +92,9 @@ export default function SpecialistsPage() {
         
         if (!data) return
 
-        const formattedData = data.map(({ specialist }) => ({
+        const formattedData: Specialist[] = data.map(({ specialist }) => ({
           specialist_id: specialist.id,
-          name: specialist.name,
+          name: specialist.name || '',
           email: specialist.email,
           business_name: specialist.business_name,
           verification_status: specialist.verification_status,
@@ -122,7 +122,7 @@ export default function SpecialistsPage() {
       filtered = filtered.filter(
         s => 
           s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          s.business_name.toLowerCase().includes(searchQuery.toLowerCase())
+          s.business_name?.toLowerCase().includes(searchQuery.toLowerCase()) === true
       )
     }
 
@@ -132,9 +132,9 @@ export default function SpecialistsPage() {
         case "name":
           return a.name.localeCompare(b.name)
         case "recent":
-          return new Date(b.last_activity).getTime() - new Date(a.last_activity).getTime()
+          return new Date(b.last_activity || '').getTime() - new Date(a.last_activity || '').getTime()
         case "business":
-          return a.business_name.localeCompare(b.business_name)
+          return a.business_name?.localeCompare(b.business_name || '') || 0
         default:
           return 0
       }
@@ -261,7 +261,7 @@ export default function SpecialistsPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4" />
-                    <span>Last active {format(new Date(specialist.last_activity), 'h:mm a')}</span>
+                    <span>Last active {format(new Date(specialist.last_activity || ''), 'h:mm a')}</span>
                   </div>
                   <div className="mt-4 flex justify-end gap-2">
                     <Button

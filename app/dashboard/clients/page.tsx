@@ -80,40 +80,53 @@ export default function ClientsPage() {
     getSpecialistId()
   }, [user])
 
-  useEffect(() => {
-    async function loadCaregivers() {
-      if (!specialistId) return
+  // Move loadCaregivers outside useEffect
+  const loadCaregivers = async () => {
+    if (!specialistId) return
+    
+    try {
+      setLoading(true)
+      setError(null)
       
-      try {
-        setLoading(true)
-        setError(null)
-        
-        const { data, error } = await supabase.rpc('get_specialist_caregivers_with_archive', {
-          p_specialist_id: specialistId,
-          p_sort_field: 'last_activity',
-          p_sort_order: 'desc',
-          p_limit: 50,
-          p_offset: 0,
-          p_include_archived: includeArchived,
-          p_archived_only: showArchived
-        })
+      const { data, error } = await supabase.rpc('get_specialist_caregivers_with_archive', {
+        p_specialist_id: specialistId,
+        p_sort_field: 'last_activity',
+        p_sort_order: 'desc',
+        p_limit: 50,
+        p_offset: 0,
+        p_include_archived: includeArchived,
+        p_archived_only: showArchived
+      })
 
-        if (error) throw error
-        console.log('Loaded caregivers:', data?.length || 0)
-        setCaregivers(data || [])
-        setFilteredCaregivers(data || [])
-      } catch (err) {
-        console.error('Error loading caregivers:', err)
-        setError('Failed to load caregivers')
-      } finally {
-        setLoading(false)
-      }
+      if (error) throw error
+      console.log('Loaded caregivers:', data?.length || 0)
+      setCaregivers(data || [])
+      setFilteredCaregivers(data || [])
+    } catch (err) {
+      console.error('Error loading caregivers:', err)
+      setError('Failed to load caregivers')
+    } finally {
+      setLoading(false)
     }
+  }
 
+  // Update the useEffect to use the moved function
+  useEffect(() => {
     loadCaregivers()
   }, [specialistId, showArchived, includeArchived])
 
-  const handleArchiveToggle = async (caregiverId: string, currentArchived: boolean) => {
+  // Now toggleArchive can access loadCaregivers
+  const toggleArchive = async (caregiverId: string) => {
+    if (!specialistId) {
+      console.error('No specialist ID available')
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Unable to perform this action. Please try again later."
+      })
+      return
+    }
+
     try {
       const { error } = await supabase.rpc('toggle_caregiver_archive', {
         p_specialist_id: specialistId,
@@ -122,28 +135,19 @@ export default function ClientsPage() {
 
       if (error) throw error
 
-      // Update local state
-      setCaregivers(prev => prev.map(c => 
-        c.caregiver_id === caregiverId 
-          ? {...c, archived: !currentArchived}
-          : c
-      ))
-      setFilteredCaregivers(prev => prev.map(c => 
-        c.caregiver_id === caregiverId 
-          ? {...c, archived: !currentArchived}
-          : c
-      ))
-
+      // Now this call will work
+      loadCaregivers()
+      
       toast({
-        title: currentArchived ? "Caregiver Unarchived" : "Caregiver Archived",
-        description: `Successfully ${currentArchived ? "unarchived" : "archived"} caregiver.`
+        title: "Success",
+        description: "Caregiver status updated successfully."
       })
     } catch (err) {
       console.error('Error toggling archive status:', err)
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to update archive status"
+        description: "Failed to update caregiver status."
       })
     }
   }
@@ -360,7 +364,7 @@ export default function ClientsPage() {
                           variant="outline"
                           size="sm"
                           className="flex items-center gap-2"
-                          onClick={() => handleArchiveToggle(caregiver.caregiver_id, caregiver.archived)}
+                          onClick={() => toggleArchive(caregiver.caregiver_id)}
                         >
                           {caregiver.archived ? 'Unarchive' : 'Archive'}
                         </Button>
@@ -415,7 +419,7 @@ export default function ClientsPage() {
                           variant="outline"
                           size="sm"
                           className="flex items-center gap-2"
-                          onClick={() => handleArchiveToggle(caregiver.caregiver_id, caregiver.archived)}
+                          onClick={() => toggleArchive(caregiver.caregiver_id)}
                         >
                           Unarchive
                         </Button>
@@ -476,7 +480,7 @@ export default function ClientsPage() {
                           variant="outline"
                           size="sm"
                           className="flex items-center gap-2"
-                          onClick={() => handleArchiveToggle(caregiver.caregiver_id, caregiver.archived)}
+                          onClick={() => toggleArchive(caregiver.caregiver_id)}
                         >
                           {caregiver.archived ? 'Unarchive' : 'Archive'}
                         </Button>

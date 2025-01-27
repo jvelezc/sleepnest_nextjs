@@ -30,17 +30,6 @@ export async function saveBreastfeedingSession({
       feedings
     })
 
-    // First verify caregiver exists
-    const { data: caregiver, error: caregiverError } = await supabase
-      .from('caregivers')
-      .select('id')
-      .eq('auth_user_id', caregiverId)
-      .single()
-
-    if (caregiverError || !caregiver) {
-      throw new Error('Invalid caregiver ID')
-    }
-
     // Calculate total duration and end time
     const totalDuration = getTotalDuration(feedings)
     const endTime = new Date(startTime.getTime() + totalDuration * 60 * 1000)
@@ -48,14 +37,14 @@ export async function saveBreastfeedingSession({
     debug.info('Creating feeding session record')
     const { data: session, error: sessionError } = await supabase
       .from('feeding_sessions')
-      .insert({
-        caregiver_id: caregiver.id,
+      .insert([{
+        caregiver_id: caregiverId,
         child_id: childId,
         type: 'breastfeeding',
         start_time: startTime.toISOString(),
         end_time: endTime.toISOString(),
-        notes
-      })
+        notes: notes || null
+      }])
       .select()
       .single()
 
@@ -76,13 +65,13 @@ export async function saveBreastfeedingSession({
     // Insert breastfeeding details
     const { error: detailsError } = await supabase
       .from('breastfeeding_sessions')
-      .insert({
+      .insert([{  // Wrap in array
         session_id: session.id,
         left_duration: leftFeeding?.duration || 0,
         right_duration: rightFeeding?.duration || 0,
         feeding_order: feedings.map(f => f.side),
         latch_quality: latchQuality
-      })
+      }])
 
     if (detailsError) throw detailsError
     debug.info('Added breastfeeding details successfully')

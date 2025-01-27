@@ -8,6 +8,9 @@ import { AddChildDialog } from "@/components/add-child-dialog"
 import { useChildStore } from "@/lib/store/child"
 import { FeedingTypeDialog } from "@/components/feeding-type-dialog"
 import { BreastfeedingDialog } from "@/components/breastfeeding-dialog"
+import { BottleFeedingDialog } from "@/components/bottle-feeding-dialog"
+import { FormulaFeedingDialog } from "@/components/formula-feeding-dialog"
+import { SolidsFeedingDialog } from "@/components/solids-feeding-dialog"
 import { useAuth } from "@/hooks/use-auth"
 import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -21,6 +24,7 @@ import { HighlightedText } from "@/components/ui/highlighted-text"
 type Child = {
   id: string
   name: string
+  date_of_birth: string
 }
 
 export default function CaregiverDashboardPage() {
@@ -28,6 +32,9 @@ export default function CaregiverDashboardPage() {
   const { toast } = useToast()
   const [feedingDialogOpen, setFeedingDialogOpen] = useState(false)
   const [breastfeedingDialogOpen, setBreastfeedingDialogOpen] = useState(false)
+  const [bottleFeedingDialogOpen, setBottleFeedingDialogOpen] = useState(false)
+  const [formulaFeedingDialogOpen, setFormulaFeedingDialogOpen] = useState(false)
+  const [solidsFeedingDialogOpen, setSolidsFeedingDialogOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [caregiverId, setCaregiverId] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
@@ -42,7 +49,7 @@ export default function CaregiverDashboardPage() {
     try {
       const { data, error } = await supabase
         .from('children')
-        .select('id, name')
+        .select('id, name, date_of_birth')
         .eq('caregiver_id', caregiverId)
         .order('created_at', { ascending: false })
 
@@ -135,6 +142,10 @@ export default function CaregiverDashboardPage() {
 
     if (type === 'breastfeeding') {
       setBreastfeedingDialogOpen(true)
+    } else if (type === 'bottle') {
+      setBottleFeedingDialogOpen(true)
+    } else if (type === 'formula') {
+      setFormulaFeedingDialogOpen(true)
     }
     // TODO: Handle other feeding types
   }
@@ -307,6 +318,21 @@ export default function CaregiverDashboardPage() {
       <BreastfeedingDialog
         open={breastfeedingDialogOpen}
         onOpenChange={setBreastfeedingDialogOpen}
+      />
+
+      <BottleFeedingDialog
+        open={bottleFeedingDialogOpen}
+        onOpenChange={setBottleFeedingDialogOpen}
+      />
+
+      <FormulaFeedingDialog
+        open={formulaFeedingDialogOpen}
+        onOpenChange={setFormulaFeedingDialogOpen}
+      />
+
+      <SolidsFeedingDialog
+        open={solidsFeedingDialogOpen}
+        onOpenChange={setSolidsFeedingDialogOpen}
       />
     </div>
   )

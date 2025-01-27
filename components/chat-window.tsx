@@ -66,9 +66,20 @@ export function ChatWindow({ specialistId, caregiverId, caregiverName, onClose }
               filter: `room_id=eq.${roomId}`,
             },
             (payload) => {
-              const newMessage = payload.new as Message;
-              if (newMessage.sender_id !== specialistId) {
-                setMessages((prev) => [...prev, newMessage]);
+              const newMessage = payload.new as any;
+              const formattedMessage: Message = {
+                id: newMessage.message_id,
+                room_id: newMessage.room_id,
+                sender_id: newMessage.sender_id,
+                content: newMessage.content,
+                created_at: newMessage.created_at,
+                updated_at: newMessage.updated_at,
+                edited: newMessage.edited,
+                deleted: newMessage.deleted,
+                read: newMessage.read,
+              };
+              if (formattedMessage.sender_id !== specialistId) {
+                setMessages((prev) => [...prev, formattedMessage]);
               }
             }
           )
@@ -83,7 +94,18 @@ export function ChatWindow({ specialistId, caregiverId, caregiverName, onClose }
         if (messagesError) throw messagesError;
 
         if (mounted) {
-          setMessages(data || []);
+          const formattedMessages: Message[] = (data || []).map((msg: any) => ({
+            id: msg.message_id,
+            room_id: msg.room_id,
+            sender_id: msg.sender_id,
+            content: msg.content,
+            created_at: msg.created_at,
+            updated_at: msg.updated_at,
+            edited: msg.edited,
+            deleted: msg.deleted,
+            read: msg.read,
+          }));
+          setMessages(formattedMessages);
           setLoading(false);
         }
 

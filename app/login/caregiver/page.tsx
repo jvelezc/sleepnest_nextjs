@@ -31,13 +31,13 @@ export default function CaregiverLoginPage() {
     setLoading(true)
 
     try {
-      await signIn(email, password, 'caregiver')
+      await signIn(email, password)
       router.push("/dashboard/caregiver")
     } catch (err: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: err.message,
+        description: err.message || "Failed to sign in"
       })
     } finally {
       setLoading(false)
