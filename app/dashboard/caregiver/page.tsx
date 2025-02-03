@@ -1,12 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Moon, Sun, Baby, Milk, PillBottle as BabyBottle, UtensilsCrossed } from "lucide-react"
+import { Moon, Sun, Baby, Milk, PillBottle as BabyBottle, UtensilsCrossed, BedDouble } from "lucide-react"
 import { format } from "date-fns"
 import { ChildSelector } from "@/components/child-selector"
 import { AddChildDialog } from "@/components/add-child-dialog"
 import { useChildStore } from "@/lib/store/child"
 import { FeedingTypeDialog } from "@/components/feeding-type-dialog"
+import { NapDialog } from "@/components/nap-tracker/nap-dialog"
+import { NapHistory } from "@/components/nap-tracker/nap-history"
 import { BreastfeedingDialog } from "@/components/breastfeeding-dialog"
 import { BottleFeedingDialog } from "@/components/bottle-feeding-dialog"
 import { FormulaFeedingDialog } from "@/components/formula-feeding-dialog"
@@ -16,10 +18,10 @@ import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { FeedingHistory } from "@/components/feeding-history"
+import { ActivityHistory } from "@/components/activity-history"
 import { supabase } from "@/lib/supabase"
 import { HighlightedText } from "@/components/ui/highlighted-text"
+import { useCaregiverStore } from "@/lib/store/caregiver"
 
 type Child = {
   id: string
@@ -30,13 +32,14 @@ type Child = {
 export default function CaregiverDashboardPage() {
   const { user } = useAuth()
   const { toast } = useToast()
+  const { caregiverId, setCaregiverId } = useCaregiverStore()
   const [feedingDialogOpen, setFeedingDialogOpen] = useState(false)
   const [breastfeedingDialogOpen, setBreastfeedingDialogOpen] = useState(false)
   const [bottleFeedingDialogOpen, setBottleFeedingDialogOpen] = useState(false)
   const [formulaFeedingDialogOpen, setFormulaFeedingDialogOpen] = useState(false)
   const [solidsFeedingDialogOpen, setSolidsFeedingDialogOpen] = useState(false)
+  const [napDialogOpen, setNapDialogOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [caregiverId, setCaregiverId] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
   const [children, setChildren] = useState<Child[]>([])
   const { selectedChild, setSelectedChild } = useChildStore()
@@ -66,8 +69,7 @@ export default function CaregiverDashboardPage() {
 
   useEffect(() => {
     async function getCaregiverId() {
-      if (!user) {
-        console.log('No user found')
+      if (!user || caregiverId) {
         setLoading(false)
         return
       }
@@ -84,7 +86,6 @@ export default function CaregiverDashboardPage() {
 
         if (caregiverError) throw caregiverError
 
-        // Create caregiver record if it doesn't exist
         if (!caregiver) {
           console.log('Creating new caregiver record')
           const { data: newCaregiver, error: insertError } = await supabase
@@ -110,13 +111,8 @@ export default function CaregiverDashboardPage() {
         setError(null)
       } catch (err) {
         console.error('Error getting caregiver ID:', err)
-        setError(null) // Don't show error to user
-        
-        // Retry a few times if needed
         if (retryCount < 3) {
-          setTimeout(() => {
-            setRetryCount(c => c + 1)
-          }, 1000)
+          setTimeout(() => setRetryCount(c => c + 1), 1000)
         }
       } finally {
         setLoading(false)
@@ -124,7 +120,7 @@ export default function CaregiverDashboardPage() {
     }
 
     getCaregiverId()
-  }, [user, retryCount])
+  }, [user, caregiverId, retryCount, setCaregiverId])
 
   useEffect(() => { loadChildren() }, [caregiverId])
 
@@ -252,7 +248,7 @@ export default function CaregiverDashboardPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Sun className="h-4 w-4 text-primary" />
+                  <BedDouble className="h-4 w-4 text-primary" />
                 </div>
                 <div>
                   <CardTitle>Daytime Naps</CardTitle>
@@ -263,7 +259,21 @@ export default function CaregiverDashboardPage() {
               <p className="text-sm text-muted-foreground mb-4">
                 Regular naps prevent overtiredness and support learning and development. Monitor nap schedules to ensure optimal rest throughout the day.
               </p>
-              <Button variant="outline" className="w-full">
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => {
+                  if (!selectedChild) {
+                    toast({
+                      variant: "destructive",
+                      title: "No Child Selected",
+                      description: "Please select a child first to track naps."
+                    })
+                    return
+                  }
+                  setNapDialogOpen(true)
+                }}
+              >
                 Log nap →
               </Button>
             </CardContent>
@@ -306,8 +316,8 @@ export default function CaregiverDashboardPage() {
           </Card>
         </div>
 
-        {/* Feeding History */}
-        <FeedingHistory />
+        {/* Activity History */}
+        <ActivityHistory />
       </div>
 
       <FeedingTypeDialog 
@@ -334,6 +344,11 @@ export default function CaregiverDashboardPage() {
       <SolidsFeedingDialog
         open={solidsFeedingDialogOpen}
         onOpenChange={setSolidsFeedingDialogOpen}
+      />
+      
+      <NapDialog
+        open={napDialogOpen}
+        onOpenChange={setNapDialogOpen}
       />
     </div>
   )

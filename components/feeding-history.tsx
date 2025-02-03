@@ -163,21 +163,6 @@ export function FeedingHistory() {
     )
   }
 
-  if (sessions.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Feedings</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-6 text-muted-foreground">
-            No feeding sessions recorded yet
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
   return (
     <>
       <Card>
@@ -278,6 +263,11 @@ export function FeedingHistory() {
                 </div>
               </div>
             ))}
+            {sessions.length === 0 && (
+              <div className="text-center py-6 text-muted-foreground">
+                No feeding sessions recorded yet
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

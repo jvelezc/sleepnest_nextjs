@@ -1,5 +1,6 @@
 # Sleep Consultant Platform
-
+ supabase gen types typescript --project-id xuqkgeusasosxtcfhbwj > types/database.types.ts 
+ 
 A platform connecting sleep specialists with caregivers to provide personalized sleep guidance.
 
 ## Routes & Components Documentation
