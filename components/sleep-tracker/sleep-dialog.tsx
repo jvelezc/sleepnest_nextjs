@@ -202,9 +202,9 @@ export function SleepDialog({
         p_onset_method_id: values.onset_method_id,
         p_restfulness_id: values.restfulness_id,
         p_signs_of_sleep_debt: values.signs_of_sleep_debt,
-        p_sound_id: values.sound_id,
-        p_sound_level_id: values.sound_level_id,
-        p_notes: values.notes?.trim() || null
+        p_sound_id: values.sound_id || '',
+        p_sound_level_id: values.sound_level_id || '',
+        p_notes: values.notes?.trim() || ''
       }
 
       console.log('Attempting RPC call with params:', rpcParams)
@@ -230,8 +230,8 @@ export function SleepDialog({
       form.reset()
       setCurrentStep('start')
       
-      if (typeof window.refreshSleepHistory === 'function') {
-        window.refreshSleepHistory()
+      if (typeof window.refreshNapHistory === 'function') {
+        window.refreshNapHistory()
       }
     } catch (error) {
       console.error('Error in sleep session submission:', error)
