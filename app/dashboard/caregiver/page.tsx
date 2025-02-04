@@ -2,22 +2,20 @@
 
 import { useState, useEffect } from "react"
 import { Moon, Sun, Baby, Milk, PillBottle as BabyBottle, UtensilsCrossed, BedDouble } from "lucide-react"
-import { format } from "date-fns"
 import { ChildSelector } from "@/components/child-selector"
 import { AddChildDialog } from "@/components/add-child-dialog"
 import { useChildStore } from "@/lib/store/child"
 import { FeedingTypeDialog } from "@/components/feeding-type-dialog"
 import { NapDialog } from "@/components/nap-tracker/nap-dialog"
-import { NapHistory } from "@/components/nap-tracker/nap-history"
 import { BreastfeedingDialog } from "@/components/breastfeeding-dialog"
 import { BottleFeedingDialog } from "@/components/bottle-feeding-dialog"
 import { FormulaFeedingDialog } from "@/components/formula-feeding-dialog"
 import { SolidsFeedingDialog } from "@/components/solids-feeding-dialog"
+import { SleepDialog } from "@/components/sleep-tracker/sleep-dialog"
 import { useAuth } from "@/hooks/use-auth"
 import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { ActivityHistory } from "@/components/activity-history"
 import { supabase } from "@/lib/supabase"
 import { HighlightedText } from "@/components/ui/highlighted-text"
@@ -39,6 +37,7 @@ export default function CaregiverDashboardPage() {
   const [formulaFeedingDialogOpen, setFormulaFeedingDialogOpen] = useState(false)
   const [solidsFeedingDialogOpen, setSolidsFeedingDialogOpen] = useState(false)
   const [napDialogOpen, setNapDialogOpen] = useState(false)
+  const [sleepDialogOpen, setSleepDialogOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
   const [children, setChildren] = useState<Child[]>([])
@@ -237,7 +236,21 @@ export default function CaregiverDashboardPage() {
               <p className="text-sm text-muted-foreground mb-4">
                 Quality nighttime sleep is crucial for your baby's growth, mood, and cognitive development. Track sleep patterns to establish healthy routines.
               </p>
-              <Button variant="outline" className="w-full">
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => {
+                  if (!selectedChild) {
+                    toast({
+                      variant: "destructive",
+                      title: "No Child Selected",
+                      description: "Please select a child first to track sleep."
+                    })
+                    return
+                  }
+                  setSleepDialogOpen(true)
+                }}
+              >
                 Record sleep →
               </Button>
             </CardContent>
@@ -349,6 +362,11 @@ export default function CaregiverDashboardPage() {
       <NapDialog
         open={napDialogOpen}
         onOpenChange={setNapDialogOpen}
+      />
+
+      <SleepDialog
+        open={sleepDialogOpen}
+        onOpenChange={setSleepDialogOpen}
       />
     </div>
   )
