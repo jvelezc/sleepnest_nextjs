@@ -72,8 +72,8 @@ export function SleepDialog({
   const [currentStep, setCurrentStep] = useState<StepType>('start')
   const [locations, setLocations] = useState<{id: string, description: string}[]>([])
   const [environments, setEnvironments] = useState<{id: string, description: string}[]>([])
-  const [onsetMethods, setOnsetMethods] = useState<{id: string, description: string}[]>([])
-  const [restfulnessRatings, setRestfulnessRatings] = useState<{id: string, description: string}[]>([])
+  const [onsetMethods, setOnsetMethods] = useState<{id: string, method: string}[]>([])
+  const [restfulnessRatings, setRestfulnessRatings] = useState<{id: string, rating: string}[]>([])
   const [sleepSounds, setSleepSounds] = useState<{id: string, name: string}[]>([])
   const [soundLevels, setSoundLevels] = useState<{id: string, level: string}[]>([])
 
@@ -114,9 +114,9 @@ export function SleepDialog({
           { data: levelData }
         ] = await Promise.all([
           supabase.from('nap_location').select('id, description').order('description'),
-          supabase.from('sleep_environment').select('id, description').order('description'),
-          supabase.from('sleep_onset_method').select('id, description').order('description'),
-          supabase.from('restfulness_rating').select('id, description').order('description'),
+          supabase.from('environments').select('id, description').order('description'),
+          supabase.from('onset_methods').select('id, method').order('method'),
+          supabase.from('restfulness').select('id, rating').order('rating'),
           supabase.from('sleep_sounds').select('id, name').order('name'),
           supabase.from('sound_levels').select('id, level').order('level')
         ])
@@ -192,6 +192,10 @@ export function SleepDialog({
         throw new Error('End time must be after start time')
       }
 
+      // Debug environment selection
+      console.log('Selected environment:', values.environment_id)
+      console.log('Available environments:', environments)
+
       const rpcParams = {
         p_caregiver_id: caregiverId,
         p_child_id: selectedChild.id,
@@ -202,9 +206,9 @@ export function SleepDialog({
         p_onset_method_id: values.onset_method_id,
         p_restfulness_id: values.restfulness_id,
         p_signs_of_sleep_debt: values.signs_of_sleep_debt,
-        p_sound_id: values.sound_id || '',
-        p_sound_level_id: values.sound_level_id || '',
-        p_notes: values.notes?.trim() || ''
+        p_sound_id: values.sound_id || undefined,
+        p_sound_level_id: values.sound_level_id || undefined,
+        p_notes: values.notes?.trim()
       }
 
       console.log('Attempting RPC call with params:', rpcParams)
@@ -490,7 +494,7 @@ export function SleepDialog({
                         }}
                       >
                         <Moon className="mr-2 h-4 w-4 shrink-0" />
-                        <span className="text-sm line-clamp-2">{method.description}</span>
+                        <span className="text-sm line-clamp-2">{method.method}</span>
                       </Button>
                     ))}
                   </div>
@@ -597,7 +601,7 @@ export function SleepDialog({
                         }}
                       >
                         <Moon className="mr-2 h-4 w-4 shrink-0" />
-                        <span className="text-sm line-clamp-2">{rating.description}</span>
+                        <span className="text-sm line-clamp-2">{rating.rating}</span>
                       </Button>
                     ))}
                   </div>
